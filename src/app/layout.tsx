@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "STEM Bee Contest",
-  description: "Fast spelling bee contest platform for admins and teams.",
+  title: "SciBlitz 2.0",
+  description: "SciBlitz 2.0 — a lightning-fast audio spelling contest for STEM minds.",
 };
 
 export default function RootLayout({
