@@ -15,28 +15,24 @@ export function getContestPhase(contest: Pick<Contest, "status" | "start_at" | "
     return "draft";
   }
 
-  if (contest.status === "running" || (contest.status === "scheduled" && now >= start)) {
+  if (contest.status === "running" || now >= start) {
     return "running";
   }
 
   return "before";
 }
 
-export function statusFromAction(action: string): ContestStatus {
-  if (action === "schedule") {
-    return "scheduled";
-  }
+export function isContestActive(contest: Pick<Contest, "status" | "start_at" | "end_at">) {
+  return getContestPhase(contest) !== "ended";
+}
 
+export function statusFromAction(action: string): ContestStatus {
   if (action === "start") {
     return "running";
   }
 
   if (action === "end") {
     return "ended";
-  }
-
-  if (action === "draft") {
-    return "draft";
   }
 
   throw new Error("Unknown contest status action");

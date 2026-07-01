@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
+import { getContestPhase } from "@/lib/contest";
 import { fail, ok, routeError } from "@/lib/http";
 import { hashPassword, randomPassword } from "@/lib/security";
 import { getSupabaseAdmin } from "@/lib/supabase";
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const { data: contest, error: contestError } = await supabase
       .from("contests")
-      .select("id,status")
+      .select("id,status,start_at,end_at")
       .eq("id", body.contestId)
       .single();
 
@@ -52,8 +53,8 @@ export async function POST(request: NextRequest) {
       return fail("Contest not found.", 404);
     }
 
-    if (contest.status !== "draft") {
-      return fail("Teams can only be generated while a contest is in draft mode.");
+    if (getContestPhase(contest) !== "before") {
+      return fail("Teams can only be generated before the contest starts.");
     }
 
     const credentials = await Promise.all(

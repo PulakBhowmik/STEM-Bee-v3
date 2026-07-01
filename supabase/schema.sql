@@ -120,6 +120,24 @@ create trigger contests_touch_updated_at
 before update on contests
 for each row execute function touch_updated_at();
 
+-- Normalize an answer for lenient comparison: lowercase, trim outer spaces, and
+-- fold "look-alike" punctuation (curly quotes and en/em dashes that phone
+-- keyboards auto-insert) down to their plain ASCII forms. Internal spaces and
+-- the punctuation characters themselves stay significant.
+create or replace function normalize_answer(p text)
+returns text
+language sql
+immutable
+as $$
+  select lower(trim(
+    translate(
+      coalesce(p, ''),
+      U&'\2018\2019\201C\201D\2013\2014',
+      '''''""--'
+    )
+  ));
+$$;
+
 create or replace function submit_spelling_answer(
   p_session_hash text,
   p_question_id uuid,
@@ -190,7 +208,14 @@ begin
     raise exception 'Answer cannot be empty' using errcode = '22023';
   end if;
 
-  v_correct := v_trimmed = any(v_question.answer_options);
+  -- Case-insensitive, punctuation-look-alike-tolerant match. Any capitalization
+  -- of an accepted answer counts as correct; curly quotes/dashes are folded to
+  -- ASCII. Spaces inside the word remain significant (a genuine misspelling).
+  v_correct := exists (
+    select 1
+    from unnest(v_question.answer_options) as opt
+    where normalize_answer(opt) = normalize_answer(v_trimmed)
+  );
   v_points := case when v_correct then v_question.points else 0 end;
 
   insert into submissions (

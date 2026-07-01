@@ -54,7 +54,7 @@ export async function getTeamSessionFromRequest(request: NextRequest) {
   const { data, error } = await getSupabaseAdmin()
     .from("team_sessions")
     .select(
-      "id,contest_id,team_id,teams(id,contest_id,team_code,display_name),contests(id,title,start_at,end_at,status,created_at)",
+      "id,contest_id,team_id,teams!team_sessions_team_id_fkey(id,contest_id,team_code,display_name),contests!team_sessions_contest_id_fkey(id,title,start_at,end_at,status,created_at)",
     )
     .eq("session_hash", sessionHash)
     .eq("active", true)

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { requireAdmin } from "@/lib/auth";
+import { getContestPhase } from "@/lib/contest";
 import { fail, ok, routeError } from "@/lib/http";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { importQuestionsZip } from "@/lib/zip-import";
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest, context: Context) {
     const { contestId } = await context.params;
     const { data: contest, error: contestError } = await getSupabaseAdmin()
       .from("contests")
-      .select("id,status")
+      .select("id,status,start_at,end_at")
       .eq("id", contestId)
       .single();
 
@@ -26,8 +27,8 @@ export async function POST(request: NextRequest, context: Context) {
       return fail("Contest not found.", 404);
     }
 
-    if (contest.status !== "draft") {
-      return fail("Questions can only be replaced while a contest is in draft mode.");
+    if (getContestPhase(contest) !== "before") {
+      return fail("Questions can only be uploaded before the contest starts.");
     }
 
     const formData = await request.formData();

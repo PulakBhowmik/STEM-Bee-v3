@@ -19,6 +19,8 @@ import {
   Zap,
 } from "lucide-react";
 
+import { getContestPhase, type ContestPhase } from "@/lib/contest";
+
 type Admin = {
   id: string;
   name: string;
@@ -91,17 +93,18 @@ function downloadCredentials(credentials: Credential[]) {
   URL.revokeObjectURL(url);
 }
 
-function StatusBadge({ status }: { status: ContestRow["status"] }) {
+function PhaseBadge({ phase }: { phase: ContestPhase }) {
+  const label = phase === "before" ? "scheduled" : phase;
   const color =
-    status === "running"
+    phase === "running"
       ? "bg-[#e8fff4] text-[#086449]"
-      : status === "ended"
+      : phase === "ended"
         ? "bg-[#fff1f0] text-[#b42318]"
-        : status === "scheduled"
+        : phase === "before"
           ? "bg-[#fff7e6] text-[#8a5a00]"
           : "bg-[#efede7] text-[#595348]";
 
-  return <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${color}`}>{status}</span>;
+  return <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${color}`}>{label}</span>;
 }
 
 function LoginPanel({ onLogin }: { onLogin: (admin: Admin) => void }) {
@@ -203,6 +206,22 @@ export default function AdminPage() {
     [contests, selectedContestId],
   );
 
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const selectedPhase: ContestPhase | null = useMemo(
+    () => (selectedContest ? getContestPhase(selectedContest) : null),
+    [selectedContest, now],
+  );
+
+  const hasActiveContest = useMemo(
+    () => contests.some((contest) => getContestPhase(contest) !== "ended"),
+    [contests, now],
+  );
+
   async function loadMe() {
     const data = await requestJson<{ admin: Admin | null }>("/api/admin/me");
     setAdmin(data.admin);
@@ -263,7 +282,6 @@ export default function AdminPage() {
           title,
           startAt: new Date(startAt).toISOString(),
           endAt: new Date(endAt).toISOString(),
-          status: "draft",
         }),
       });
       setMessage("Contest created.");
@@ -340,7 +358,7 @@ export default function AdminPage() {
     }
   }
 
-  async function setStatus(action: "draft" | "schedule" | "start" | "end") {
+  async function setStatus(action: "start" | "end") {
     if (!selectedContest) {
       return;
     }
@@ -407,43 +425,49 @@ export default function AdminPage() {
               <Plus size={18} aria-hidden="true" />
               New contest
             </h2>
-            <form className="space-y-4" onSubmit={createContest}>
-              <label className="block text-sm font-semibold">
-                Title
-                <input
-                  className="mt-2 w-full rounded-md border border-[var(--line)] px-3 py-2 outline-none focus:border-[var(--accent)]"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                  required
-                />
-              </label>
-              <label className="block text-sm font-semibold">
-                Start time
-                <input
-                  className="mt-2 w-full rounded-md border border-[var(--line)] px-3 py-2 outline-none focus:border-[var(--accent)]"
-                  type="datetime-local"
-                  value={startAt}
-                  onChange={(event) => setStartAt(event.target.value)}
-                  required
-                />
-              </label>
-              <label className="block text-sm font-semibold">
-                End time
-                <input
-                  className="mt-2 w-full rounded-md border border-[var(--line)] px-3 py-2 outline-none focus:border-[var(--accent)]"
-                  type="datetime-local"
-                  value={endAt}
-                  onChange={(event) => setEndAt(event.target.value)}
-                  required
-                />
-              </label>
-              <button
-                className="w-full rounded-md bg-[var(--accent)] px-4 py-2.5 font-semibold text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
-                disabled={busy === "contest"}
-              >
-                {busy === "contest" ? "Creating..." : "Create contest"}
-              </button>
-            </form>
+            {hasActiveContest ? (
+              <p className="rounded-md border border-[#f3d8a8] bg-[#fff7e6] p-3 text-sm text-[#8a5a00]">
+                A contest is still active. Wait for it to end (or press End on it) before creating a new one.
+              </p>
+            ) : (
+              <form className="space-y-4" onSubmit={createContest}>
+                <label className="block text-sm font-semibold">
+                  Title
+                  <input
+                    className="mt-2 w-full rounded-md border border-[var(--line)] px-3 py-2 outline-none focus:border-[var(--accent)]"
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    required
+                  />
+                </label>
+                <label className="block text-sm font-semibold">
+                  Start time
+                  <input
+                    className="mt-2 w-full rounded-md border border-[var(--line)] px-3 py-2 outline-none focus:border-[var(--accent)]"
+                    type="datetime-local"
+                    value={startAt}
+                    onChange={(event) => setStartAt(event.target.value)}
+                    required
+                  />
+                </label>
+                <label className="block text-sm font-semibold">
+                  End time
+                  <input
+                    className="mt-2 w-full rounded-md border border-[var(--line)] px-3 py-2 outline-none focus:border-[var(--accent)]"
+                    type="datetime-local"
+                    value={endAt}
+                    onChange={(event) => setEndAt(event.target.value)}
+                    required
+                  />
+                </label>
+                <button
+                  className="w-full rounded-md bg-[var(--accent)] px-4 py-2.5 font-semibold text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
+                  disabled={busy === "contest"}
+                >
+                  {busy === "contest" ? "Creating..." : "Create contest"}
+                </button>
+              </form>
+            )}
           </section>
 
           <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
@@ -467,7 +491,7 @@ export default function AdminPage() {
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="font-semibold">{contest.title}</span>
-                      <StatusBadge status={contest.status} />
+                      <PhaseBadge phase={getContestPhase(contest)} />
                     </span>
                     <span className="mt-2 block text-xs text-[var(--muted)]">
                       {contest.counts.questions} questions · {contest.counts.teams} teams
@@ -489,34 +513,31 @@ export default function AdminPage() {
                   <div>
                     <div className="mb-2 flex items-center gap-2">
                       <h2 className="text-2xl font-semibold">{selectedContest.title}</h2>
-                      <StatusBadge status={selectedContest.status} />
+                      {selectedPhase ? <PhaseBadge phase={selectedPhase} /> : null}
                     </div>
                     <p className="text-sm text-[var(--muted)]">
                       {new Date(selectedContest.start_at).toLocaleString()} to{" "}
                       {new Date(selectedContest.end_at).toLocaleString()}
                     </p>
+                    <p className="mt-1 text-xs text-[var(--muted)]">
+                      Auto-starts at start time. Auto-ends at end time. Use the buttons only for emergencies.
+                    </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
-                      className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] px-3 py-2 text-sm font-semibold hover:border-[var(--accent)] disabled:opacity-60"
-                      onClick={() => setStatus("schedule")}
-                      disabled={busy === "schedule"}
-                    >
-                      <CalendarClock size={16} aria-hidden="true" />
-                      Schedule
-                    </button>
-                    <button
-                      className="inline-flex items-center gap-2 rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-md bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white hover:bg-[var(--accent-strong)] disabled:opacity-60 disabled:cursor-not-allowed"
                       onClick={() => setStatus("start")}
-                      disabled={busy === "start"}
+                      disabled={busy === "start" || selectedPhase !== "before"}
+                      title={selectedPhase !== "before" ? "Contest has already started or ended" : "Emergency: start the contest now"}
                     >
                       <Zap size={16} aria-hidden="true" />
                       Start now
                     </button>
                     <button
-                      className="inline-flex items-center gap-2 rounded-md bg-[#b42318] px-3 py-2 text-sm font-semibold text-white hover:bg-[#8d1c13] disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-md bg-[#b42318] px-3 py-2 text-sm font-semibold text-white hover:bg-[#8d1c13] disabled:opacity-60 disabled:cursor-not-allowed"
                       onClick={() => setStatus("end")}
-                      disabled={busy === "end"}
+                      disabled={busy === "end" || selectedPhase === "ended"}
+                      title={selectedPhase === "ended" ? "Contest is already ended" : "Emergency: end the contest now"}
                     >
                       <Square size={16} aria-hidden="true" />
                       End

@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin();
     const { data: team, error } = await supabase
       .from("teams")
-      .select("id,contest_id,team_code,display_name,password_hash,contests(id,title,start_at,end_at,status,created_at)")
+      .select("id,contest_id,team_code,display_name,password_hash,contests!teams_contest_id_fkey(id,title,start_at,end_at,status,created_at)")
       .eq("team_code", body.teamCode.toUpperCase())
       .single();
 

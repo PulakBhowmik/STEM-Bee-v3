@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { requireAdmin } from "@/lib/auth";
+import { isContestActive } from "@/lib/contest";
 import { fail, ok, routeError } from "@/lib/http";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
@@ -9,7 +10,6 @@ const contestSchema = z.object({
   title: z.string().min(2),
   startAt: z.string().datetime(),
   endAt: z.string().datetime(),
-  status: z.enum(["draft", "scheduled"]).default("draft"),
 });
 
 export async function GET(request: NextRequest) {
@@ -69,13 +69,30 @@ export async function POST(request: NextRequest) {
       return fail("End time must be after start time.");
     }
 
-    const { data, error } = await getSupabaseAdmin()
+    const supabase = getSupabaseAdmin();
+    const { data: existing, error: existingError } = await supabase
+      .from("contests")
+      .select("id,title,status,start_at,end_at");
+
+    if (existingError) {
+      throw existingError;
+    }
+
+    const active = (existing ?? []).find((contest) => isContestActive(contest));
+    if (active) {
+      return fail(
+        `Another contest "${active.title}" is still active. Wait for it to end or press End on it first.`,
+        409,
+      );
+    }
+
+    const { data, error } = await supabase
       .from("contests")
       .insert({
         title: body.title,
         start_at: start.toISOString(),
         end_at: end.toISOString(),
-        status: body.status,
+        status: "scheduled",
         created_by: admin.id,
       })
       .select("id,title,start_at,end_at,status,created_at")
