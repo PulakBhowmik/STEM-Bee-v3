@@ -37,10 +37,11 @@ create table if not exists contests (
 create table if not exists teams (
   id uuid primary key default gen_random_uuid(),
   contest_id uuid not null references contests(id) on delete cascade,
-  team_code text not null unique,
+  team_code text not null,
   display_name text not null,
   password_hash text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (contest_id, team_code)
 );
 
 create table if not exists team_sessions (
