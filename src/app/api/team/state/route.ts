@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const [questionsResult, submissionsResult, scoreResult] = await Promise.all([
       supabase
         .from("questions")
-        .select("id,serial,audio_storage_path,audio_file_name,points")
+        .select("id,serial,audio_storage_path,audio_file_name,points,hint")
         .eq("contest_id", session.contest_id)
         .order("serial", { ascending: true }),
       supabase
@@ -72,6 +72,7 @@ export async function GET(request: NextRequest) {
           serial: question.serial,
           points: question.points,
           audioUrl,
+          hint: phase === "running" ? question.hint : null,
           submitted: Boolean(submission),
           submittedAnswer: submission?.submitted_answer ?? null,
           result: submission ? (submission.is_correct ? "correct" : "incorrect") : null,

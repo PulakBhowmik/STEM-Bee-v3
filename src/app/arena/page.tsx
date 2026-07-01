@@ -4,7 +4,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Clock, Headphones, LogOut, Play, ShieldCheck, Trophy, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Eye, EyeOff, Headphones, LogOut, Play, ShieldCheck, Trophy, XCircle } from "lucide-react";
 
 type Phase = "draft" | "before" | "running" | "ended";
 
@@ -37,6 +37,7 @@ type QuestionState = {
   serial: number;
   points: number;
   audioUrl: string | null;
+  hint: string | null;
   submitted: boolean;
   submittedAnswer: string | null;
   result: "correct" | "incorrect" | null;
@@ -98,6 +99,31 @@ function AudioButton({ url, disabled }: { url: string | null; disabled: boolean 
     >
       {playing ? <Headphones size={20} aria-hidden="true" /> : <Play size={20} aria-hidden="true" />}
       <span className="sr-only">Play audio</span>
+    </button>
+  );
+}
+
+function HintButton({
+  hint,
+  disabled,
+  revealed,
+  onToggle,
+}: {
+  hint: string | null;
+  disabled: boolean;
+  revealed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-[var(--line)] bg-white text-[var(--accent-strong)] hover:border-[var(--accent)] disabled:bg-[#efede7] disabled:text-[var(--muted)]"
+      onClick={onToggle}
+      disabled={disabled || !hint}
+      title={hint ? (revealed ? "Hide hint" : "Show hint") : "No hint available"}
+      type="button"
+    >
+      {revealed ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
+      <span className="sr-only">Show hint</span>
     </button>
   );
 }
@@ -185,6 +211,11 @@ export default function ArenaPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState("");
   const [clockSeconds, setClockSeconds] = useState(0);
+  const [revealedHints, setRevealedHints] = useState<Record<string, boolean>>({});
+
+  function toggleHint(questionId: string) {
+    setRevealedHints((current) => ({ ...current, [questionId]: !current[questionId] }));
+  }
 
   const targetTime = useMemo(() => {
     if (!state) {
@@ -343,6 +374,12 @@ export default function ArenaPage() {
                   <div className="min-w-0">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <AudioButton url={question.audioUrl} disabled={!isOpen} />
+                      <HintButton
+                        hint={question.hint}
+                        disabled={!isOpen}
+                        revealed={Boolean(revealedHints[question.id])}
+                        onToggle={() => toggleHint(question.id)}
+                      />
                       <span className="rounded-md bg-[#f7f5ef] px-2.5 py-1 text-sm font-semibold text-[var(--muted)]">
                         {question.points} point{question.points === 1 ? "" : "s"}
                       </span>
@@ -358,6 +395,12 @@ export default function ArenaPage() {
                         </span>
                       ) : null}
                     </div>
+                    {revealedHints[question.id] && question.hint ? (
+                      <p className="mb-3 rounded-md bg-[#f7f5ef] px-3 py-2 text-sm text-[var(--muted)]">
+                        <span className="font-semibold text-[var(--foreground)]">Hint: </span>
+                        {question.hint}
+                      </p>
+                    ) : null}
                     <input
                       className="w-full rounded-md border border-[var(--line)] px-3 py-3 text-lg outline-none focus:border-[var(--accent)] disabled:bg-[#efede7]"
                       placeholder="Type spelling"
