@@ -79,8 +79,18 @@ export async function importQuestionsZip(contestId: string, file: File) {
     entryByFileName.set(baseName(entry.name).toLowerCase(), entry);
   }
 
-  const questions: ParsedQuestion[] = [];
   const bucket = getAudioBucket();
+
+  type PendingQuestion = {
+    serial: number;
+    answers: string[];
+    audioEntry: JSZip.JSZipObject;
+    word: string | null;
+    hint: string | null;
+  };
+
+  // Phase 1: parse and validate every row up front (no network I/O yet).
+  const pending: PendingQuestion[] = [];
 
   for (const row of rows) {
     const serial = Number(cleanCell(row[serialIndex]));
@@ -107,29 +117,52 @@ export async function importQuestionsZip(contestId: string, file: File) {
       throw new Error(`Question ${serial} references missing audio file: ${audioLink}`);
     }
 
-    const audioFileName = baseName(audioEntry.name);
-    const storagePath = `${contestId}/${serial}-${audioFileName}`;
-    const audioBuffer = await audioEntry.async("nodebuffer");
-    const { error: uploadError } = await getSupabaseAdmin().storage
-      .from(bucket)
-      .upload(storagePath, audioBuffer, {
-        upsert: true,
-        contentType: contentTypeFor(audioFileName),
-      });
-
-    if (uploadError) {
-      throw new Error(`Audio upload failed for ${audioFileName}: ${uploadError.message}`);
-    }
-
-    questions.push({
+    pending.push({
       serial,
+      answers,
+      audioEntry,
       word: wordIndex >= 0 ? cleanCell(row[wordIndex]) || null : null,
-      answer_options: answers,
-      audio_storage_path: storagePath,
-      audio_file_name: audioFileName,
       hint: hintIndex >= 0 ? cleanCell(row[hintIndex]) || null : null,
-      points: 1,
     });
+  }
+
+  // Phase 2: upload audio in parallel batches. Sequential upload of a large
+  // contest (50+ clips) exceeded the serverless time limit; batching keeps the
+  // whole import to a few seconds.
+  const CONCURRENCY = 10;
+  const questions: ParsedQuestion[] = [];
+
+  for (let start = 0; start < pending.length; start += CONCURRENCY) {
+    const batch = pending.slice(start, start + CONCURRENCY);
+    const uploaded = await Promise.all(
+      batch.map(async (item) => {
+        const audioFileName = baseName(item.audioEntry.name);
+        const storagePath = `${contestId}/${item.serial}-${audioFileName}`;
+        const audioBuffer = await item.audioEntry.async("nodebuffer");
+        const { error: uploadError } = await getSupabaseAdmin()
+          .storage.from(bucket)
+          .upload(storagePath, audioBuffer, {
+            upsert: true,
+            contentType: contentTypeFor(audioFileName),
+          });
+
+        if (uploadError) {
+          throw new Error(`Audio upload failed for ${audioFileName}: ${uploadError.message}`);
+        }
+
+        return {
+          serial: item.serial,
+          word: item.word,
+          answer_options: item.answers,
+          audio_storage_path: storagePath,
+          audio_file_name: audioFileName,
+          hint: item.hint,
+          points: 1,
+        } satisfies ParsedQuestion;
+      }),
+    );
+
+    questions.push(...uploaded);
   }
 
   if (questions.length === 0) {

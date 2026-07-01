@@ -20,7 +20,7 @@ const teamCode = "TEAM-01";
 const candidate = "58FHZTqGQh";
 
 console.log(`Looking up team with code='${teamCode}'`);
-const { data, error } = await supabase
+const { data } = await supabase
   .from("teams")
   .select("id,contest_id,team_code,display_name,password_hash,contests(id,title,start_at,end_at,status,created_at)");
 
