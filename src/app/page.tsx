@@ -1,8 +1,45 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BookOpen, CheckCircle2, Clock, Headphones, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, Clock, Headphones, Users } from "lucide-react";
 
 const RULEBOOK_URL = "https://drive.google.com/file/d/1cxrpBt3_mzxgzDrTv_5IgWjBfxTr1uKE/view?usp=drive_link";
+
+const INSTRUCTION_SECTIONS = [
+  {
+    group: "Before you begin",
+    icon: Users,
+    items: [
+      "Only the team leader competes on behalf of the team.",
+      "Join the Zoom meeting and keep your screen shared throughout the contest.",
+      "Disable Grammarly and any other browser extension that checks or corrects spelling.",
+    ],
+  },
+  {
+    group: "During the contest",
+    icon: Clock,
+    items: [
+      "Use a single device and a single tab. Signing in anywhere else immediately logs out the earlier session.",
+      "Joining late does not grant extra time — the contest closes for everyone at the same moment.",
+      "Press the audio button to hear the word, and the eye button to reveal its origin.",
+      "Type your spelling and press the Submit button. Pressing Enter on the keyboard will not submit your answer.",
+    ],
+  },
+  {
+    group: "Scoring & fair play",
+    icon: CheckCircle2,
+    items: [
+      "Capitalization and spaces before or after the word are ignored — but hyphens (-) and apostrophes (') are part of the spelling, so include them exactly.",
+      "If a poor connection logs you out, your score is safe and resumes from your latest total.",
+      "Any attempt to abuse or exploit the system will result in disqualification of the team.",
+    ],
+  },
+];
+
+let runningNumber = 0;
+const numberedSections = INSTRUCTION_SECTIONS.map((section) => ({
+  ...section,
+  items: section.items.map((text) => ({ num: (runningNumber += 1), text })),
+}));
 
 export default function Home() {
   return (
@@ -27,7 +64,7 @@ export default function Home() {
           </Link>
         </nav>
 
-        <div className="flex flex-1 flex-col items-center justify-center gap-8 py-12 text-center">
+        <div className="flex flex-1 flex-col items-center gap-8 py-12">
           <Image
             src="/brand/sciblitz-logo.png"
             alt="SciBlitz 2.0"
@@ -38,13 +75,16 @@ export default function Home() {
             priority
           />
 
-          <div className="space-y-5">
-            <h1 className="max-w-2xl text-3xl font-semibold leading-[1.15] sm:text-5xl">
-              A lightning-fast spelling showdown for STEM minds.
+          <div className="space-y-4 text-center">
+            <p className="inline-flex rounded-md bg-[#e8fff4] px-3 py-1 text-sm font-semibold text-[#086449]">
+              Round 2 · Live today
+            </p>
+            <h1 className="mx-auto max-w-2xl text-3xl font-semibold leading-[1.15] sm:text-5xl">
+              STEM Bee — Round 2
             </h1>
             <p className="mx-auto max-w-xl text-lg leading-8 text-[var(--muted)]">
-              Listen to the word, type the spelling, and lock in your answer before time runs out. Every submission
-              is scored and saved the instant you confirm it.
+              Welcome to the second round of STEM Bee. Please read every instruction below carefully before you enter
+              the arena.
             </p>
           </div>
 
@@ -68,35 +108,30 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="grid w-full gap-4 pt-6 text-left sm:grid-cols-2">
-            {[
-              {
-                icon: Users,
-                title: "Contest format",
-                body: "Teams compete together, but only one member plays. Answer audio spelling questions during the live contest window.",
-              },
-              {
-                icon: ShieldCheck,
-                title: "One login, one device",
-                body: "Logging in on a new device automatically signs the old one out. Your team's score is never lost — it always picks up where you left off.",
-              },
-              {
-                icon: CheckCircle2,
-                title: "Scoring",
-                body: "Capitalization and stray spaces never count against you. Each question can be submitted once, so make it count before confirming.",
-              },
-              {
-                icon: Clock,
-                title: "Timing",
-                body: "The arena unlocks automatically at contest start time and locks at the end. No need to refresh — just keep the page open.",
-              },
-            ].map((item) => (
-              <div key={item.title} className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-                <item.icon className="mb-4 text-[var(--accent)]" size={22} aria-hidden="true" />
-                <h3 className="text-base font-semibold">{item.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{item.body}</p>
-              </div>
-            ))}
+          <div className="w-full max-w-3xl rounded-lg border border-[var(--line)] bg-white p-6 shadow-sm sm:p-8">
+            <h2 className="mb-6 text-lg font-semibold">Contest instructions</h2>
+            <div className="space-y-7">
+              {numberedSections.map((section) => (
+                <div key={section.group}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <section.icon size={18} className="text-[var(--accent)]" aria-hidden="true" />
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--muted)]">
+                      {section.group}
+                    </h3>
+                  </div>
+                  <ol className="space-y-2.5">
+                    {section.items.map((item) => (
+                      <li key={item.num} className="flex gap-3">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-semibold text-white">
+                          {item.num}
+                        </span>
+                        <span className="pt-0.5 text-sm leading-6 text-[var(--foreground)]">{item.text}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
