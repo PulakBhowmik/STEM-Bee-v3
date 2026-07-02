@@ -9,7 +9,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 
 const generateTeamsSchema = z.object({
   contestId: z.uuid(),
-  count: z.number().int().min(1).max(20),
+  count: z.number().int().min(1).max(100),
   prefix: z.string().trim().min(2).max(12).default("TEAM"),
 });
 

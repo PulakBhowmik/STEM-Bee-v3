@@ -197,7 +197,7 @@ export default function AdminPage() {
   const [title, setTitle] = useState("STEM Bee Championship");
   const [startAt, setStartAt] = useState(() => toLocalInput(new Date(Date.now() + 10 * 60_000)));
   const [endAt, setEndAt] = useState(() => toLocalInput(new Date(Date.now() + 40 * 60_000)));
-  const [teamCount, setTeamCount] = useState(20);
+  const [teamCount, setTeamCount] = useState(55);
   const [teamPrefix, setTeamPrefix] = useState("TEAM");
   const [zipFile, setZipFile] = useState<File | null>(null);
 
@@ -584,7 +584,7 @@ export default function AdminPage() {
                         className="mt-2 w-full rounded-md border border-[var(--line)] px-3 py-2 outline-none focus:border-[var(--accent)]"
                         type="number"
                         min={1}
-                        max={20}
+                        max={100}
                         value={teamCount}
                         onChange={(event) => setTeamCount(Number(event.target.value))}
                       />

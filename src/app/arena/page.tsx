@@ -68,6 +68,11 @@ function secondsUntil(iso: string) {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 1000));
 }
 
+// Only one question's audio should be audible at a time. Tracking the
+// currently playing element at module scope (rather than lifting state up
+// through the question list) keeps the fix contained to this component.
+let currentlyPlayingAudio: HTMLAudioElement | null = null;
+
 function AudioButton({ url, disabled }: { url: string | null; disabled: boolean }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -88,9 +93,14 @@ function AudioButton({ url, disabled }: { url: string | null; disabled: boolean 
       return;
     }
 
-    audioRef.current = new Audio(url);
-    audioRef.current.preload = "metadata";
-    audioRef.current.addEventListener("ended", () => setPlaying(false));
+    const audio = new Audio(url);
+    audio.preload = "metadata";
+    // Driving `playing` off the element's own play/pause events (rather than
+    // setting it directly in the click handler) keeps every button's icon
+    // correct even when a *different* button's click is what paused this one.
+    audio.addEventListener("play", () => setPlaying(true));
+    audio.addEventListener("pause", () => setPlaying(false));
+    audioRef.current = audio;
   }, [url]);
 
   async function playAudio() {
@@ -98,8 +108,12 @@ function AudioButton({ url, disabled }: { url: string | null; disabled: boolean 
       return;
     }
 
-    setPlaying(true);
-    await audioRef.current.play().catch(() => setPlaying(false));
+    if (currentlyPlayingAudio && currentlyPlayingAudio !== audioRef.current) {
+      currentlyPlayingAudio.pause();
+    }
+    currentlyPlayingAudio = audioRef.current;
+
+    await audioRef.current.play().catch(() => {});
   }
 
   return (
