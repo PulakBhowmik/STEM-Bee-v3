@@ -72,17 +72,30 @@ function AudioButton({ url, disabled }: { url: string | null; disabled: boolean 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
 
-  async function playAudio() {
-    if (!url || disabled) {
+  // Warm up the connection (and let the browser buffer what it judges
+  // worthwhile) as soon as the question is visible, instead of waiting for
+  // the click. "metadata" avoids fully downloading every question's audio
+  // up front, which matters with many teams loading the arena at once.
+  //
+  // The arena polls /api/team/state every few seconds, and each poll returns
+  // a newly signed audio URL for the same file. Set up the audio element the
+  // first time a URL arrives and then leave it alone — resetting `src` on
+  // every later poll would abort and restart the fetch before it ever
+  // finishes, since the signed token is guaranteed to expire well after any
+  // realistic contest length.
+  useEffect(() => {
+    if (!url || audioRef.current) {
       return;
     }
 
-    if (!audioRef.current) {
-      audioRef.current = new Audio(url);
-      audioRef.current.preload = "none";
-      audioRef.current.addEventListener("ended", () => setPlaying(false));
-    } else if (audioRef.current.src !== url) {
-      audioRef.current.src = url;
+    audioRef.current = new Audio(url);
+    audioRef.current.preload = "metadata";
+    audioRef.current.addEventListener("ended", () => setPlaying(false));
+  }, [url]);
+
+  async function playAudio() {
+    if (!url || disabled || !audioRef.current) {
+      return;
     }
 
     setPlaying(true);
