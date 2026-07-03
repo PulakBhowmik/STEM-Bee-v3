@@ -231,6 +231,29 @@ function LoginPanel({ onLoggedIn }: { onLoggedIn: () => void }) {
   );
 }
 
+function SupersededPanel() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10">
+      <section className="w-full max-w-md rounded-lg border border-[var(--line)] bg-white p-6 text-center shadow-sm">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-md bg-[#181713] text-white">
+          <LogOut size={22} aria-hidden="true" />
+        </div>
+        <h1 className="text-xl font-semibold">Opened in another tab</h1>
+        <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[var(--muted)]">
+          Your team is now active in another tab or window. Only one can be used at a time, so this tab has been paused.
+        </p>
+        <button
+          className="mt-6 inline-flex items-center justify-center gap-2 rounded-md bg-[var(--accent)] px-5 py-3 font-semibold text-white hover:bg-[var(--accent-strong)]"
+          onClick={() => window.location.reload()}
+          type="button"
+        >
+          Use this tab instead
+        </button>
+      </section>
+    </main>
+  );
+}
+
 export default function ArenaPage() {
   const [state, setState] = useState<ContestState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -239,6 +262,10 @@ export default function ArenaPage() {
   const [submitting, setSubmitting] = useState("");
   const [clockSeconds, setClockSeconds] = useState(0);
   const [revealedHints, setRevealedHints] = useState<Record<string, boolean>>({});
+  const [supersededByOtherTab, setSupersededByOtherTab] = useState(false);
+  const tabIdRef = useRef<string>("");
+  const channelRef = useRef<BroadcastChannel | null>(null);
+  const hasClaimedRef = useRef(false);
 
   function toggleHint(questionId: string) {
     setRevealedHints((current) => ({ ...current, [questionId]: !current[questionId] }));
@@ -277,7 +304,7 @@ export default function ArenaPage() {
   }, [targetTime]);
 
   useEffect(() => {
-    if (!state) {
+    if (!state || supersededByOtherTab) {
       return;
     }
 
@@ -286,7 +313,43 @@ export default function ArenaPage() {
     }, state.phase === "running" ? 3000 : 8000);
 
     return () => window.clearInterval(interval);
-  }, [state?.phase]);
+  }, [state?.phase, supersededByOtherTab]);
+
+  // Same-browser single-tab enforcement. Tabs of one browser share a login
+  // cookie, so the server cannot tell them apart. Instead they coordinate over
+  // a BroadcastChannel: whenever a tab starts showing the arena it announces
+  // itself, and any older tab that hears a different tab's announcement steps
+  // aside. The newest tab (including a duplicated one) always wins. This is
+  // cosmetic isolation only — it never touches the shared server session, so it
+  // cannot log the active tab out or affect the score.
+  useEffect(() => {
+    tabIdRef.current = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+    if (typeof BroadcastChannel === "undefined") {
+      return;
+    }
+
+    const channel = new BroadcastChannel("sciblitz-arena-session");
+    channelRef.current = channel;
+    channel.onmessage = (event) => {
+      if (event.data?.type === "claim" && event.data.tabId !== tabIdRef.current) {
+        currentlyPlayingAudio?.pause();
+        setSupersededByOtherTab(true);
+      }
+    };
+
+    return () => {
+      channel.close();
+      channelRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (state && !supersededByOtherTab && !hasClaimedRef.current) {
+      hasClaimedRef.current = true;
+      channelRef.current?.postMessage({ type: "claim", tabId: tabIdRef.current });
+    }
+  }, [state, supersededByOtherTab]);
 
   async function submitAnswer(questionId: string) {
     const answer = answers[questionId]?.trim();
@@ -320,6 +383,10 @@ export default function ArenaPage() {
 
   if (loading) {
     return <main className="grid min-h-screen place-items-center bg-[var(--background)]">Loading arena...</main>;
+  }
+
+  if (supersededByOtherTab) {
+    return <SupersededPanel />;
   }
 
   if (!state) {
